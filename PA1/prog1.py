@@ -1,3 +1,4 @@
+import os, random, string
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import padding
@@ -65,8 +66,8 @@ def counter_plus_one(ctr):
 # Padding Oracle attack
 key = b'1234567890123456'
 iv = b'1234567890123456'
-# msg = "1234567890123456" + "1234567890123456" + "abcdefghijklm"
-msg = "1234567890123456" + "1234567"
+msg = "1234567890123456" + "1234567890123456" + "abcdefghijklm"
+# msg = "1234567890123456" + "1234567"
 cipher = Cipher(algorithms.AES(key), modes.CBC(iv), backend=default_backend())
 encryptor = cipher.encryptor()
 decryptor = cipher.decryptor()
@@ -122,7 +123,7 @@ def padding_oracle_attack(c):
     print('Start padding oracle attack')
     outputFile.write('Start padding oracle attack\n')
     print('Original message is:', msg)
-    outputFile.write('Original cipher text is: ' + str(msg) + '\n')
+    outputFile.write('Original messagge is: ' + str(msg) + '\n')
     print('Original cipher text is:', c)
     outputFile.write('Original cipher text is: ' + str(c) + '\n')
     L = 16
@@ -163,8 +164,13 @@ def padding_oracle_attack(c):
     print('Total number of queries are:', numQueries)
     outputFile.write('The recovered last block of the message is: ' + str(recovered_msg.decode()) + '\n')
     outputFile.write('Total number of queries are: ' + str(numQueries) + '\n')
+    print('Detailed steps saved in file "attack_result.txt"')
     outputFile.close()
     return recovered_msg.decode()
 
-c = padding_encrypt()
-padding_oracle_attack(c)
+def start_padding_oracle_attack():
+    c = padding_encrypt()
+    padding_oracle_attack(c)
+
+if __name__ == '__main__':
+    start_padding_oracle_attack()

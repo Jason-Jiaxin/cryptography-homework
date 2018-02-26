@@ -71,6 +71,7 @@ def rand_message():
 # assert the encrypted messages are the same using library and my own implementation.
 # assert the decrypted messages are the same, and same as the original message
 def test10():
+    print('Start encryption test')
     for i in range(10):
         key = os.urandom(16)
         iv = os.urandom(16)
@@ -78,20 +79,33 @@ def test10():
         msg = rand_message()
         # print (msg)
 
+        print('\nRound', i+1, 'Original message:', msg)
         # CBC Mode
+        print('CBC Mode')
         ct_cbc_lib = lib_cbc_encrypt(key, iv, msg)
         ct_cbc_prog1 = prog1.cbc_encrypt(key, iv, msg)
+        print('Cipher text encrypted by library:', ct_cbc_lib)
+        print('Cipher text encrypted by me:', ct_cbc_prog1)
         assert ct_cbc_lib == ct_cbc_prog1
         dt_cbc_lib = lib_cbc_decrypt(key, iv, ct_cbc_lib)
         dt_cbc_prog1 = prog1.cbc_decrypt(key, iv, ct_cbc_prog1)
         assert dt_cbc_lib == msg and dt_cbc_lib == dt_cbc_prog1
+        print('Decrypted messages are same and equal to original message:',
+              dt_cbc_lib == msg and dt_cbc_lib == dt_cbc_prog1)
 
         # CTR Mode
+        print('CTR Mode')
         ct_ctr_lib = lib_ctr_encrypt(key, ctr, msg)
         ct_ctr_prog1 = prog1.ctr_encrypt(key, ctr, msg)
+        print('Cipher text encrypted by library:', ct_ctr_lib)
+        print('Cipher text encrypted by me:', ct_ctr_prog1)
         assert ct_ctr_lib == ct_ctr_prog1
         dt_ctr_lib = lib_ctr_decrypt(key, ctr, ct_ctr_lib)
         dt_ctr_prog1 = prog1.ctr_decrypt(key, ctr, ct_ctr_prog1)
         assert dt_ctr_lib == msg and dt_ctr_lib == dt_ctr_prog1
+        print('Decrypted messages are same and equal to original message:',
+              dt_ctr_lib == msg and dt_ctr_lib == dt_ctr_prog1)
+    print('Test complete')
 
-test10()
+if __name__ == '__main__':
+    test10()
