@@ -1,4 +1,5 @@
-import random, math, hashlib
+import random, math, hashlib, sys
+sys.setrecursionlimit(1000000)
 
 # Implement Miller-Rabin Primality test
 # Return 1 if prime, 0 not prime
@@ -62,15 +63,13 @@ def egcd(a, b):
     if a == 0:
         return (b, 0, 1)
     else:
-        g, y, x = egcd(b % a, a)
-        return (g, x - (b // a) * y, y)
+        g, x, y = egcd(b % a, a)
+        return (g, y - (b // a) * x, x)
 
-def modinv(a, m):
-    g, x, y = egcd(a, m)
-    if g != 1:
-        return False
-    else:
-        return x % m
+def mulinv(b, n):
+    g, x, _ = egcd(b, n)
+    if g == 1:
+        return x % n
 
 class RSA:
 	# initialize RSA, generate e, d
@@ -85,19 +84,13 @@ class RSA:
 		# Primes p and q
         self.p = generate_prime(self.n)
         self.q = generate_prime(self.n)
-
 		# RSA modulus N = pq
         self.rsamodulus = self.p * self.q
         self.phiN = (self.p - 1) * (self.q - 1)
 
 		# Public key e
         e = self.genE()
-        d = modinv(e, self.phiN)
-        # print('e', e, 'd', d)
-        while not d:
-            # print('e', e, 'd', d)
-            e = self.genE()
-            d = modinv(e, self.phiN)
+        d = mulinv(e, self.phiN)
 
         self.e = e
 
@@ -112,13 +105,13 @@ class RSA:
 
     def genE(self):
 
-        size_e = 1024
-        e = getOddNumberOfNBits(size_e)
-        # e = random.randint(3, self.phiN)
+        # size_e = 1024
+        # e = getOddNumberOfNBits(size_e)
+        e = random.randint(2, self.phiN)
         while math.gcd(e, self.phiN) != 1:
             # print(e)
-            e = getOddNumberOfNBits(size_e)
-            # e = random.randint(3, self.phiN)
+            # e = getOddNumberOfNBits(size_e)
+            e = random.randint(2, self.phiN)
         return e
 
 def sha256(*args):
