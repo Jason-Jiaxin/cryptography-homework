@@ -14,7 +14,7 @@ def testRSASign():
         isCorrect = prog3.verSign(m, sigma, pk, N)
         print('Round:', i, 'Message is:', m, 'Verify correct:', isCorrect, 'Message hash:', sigma)
         assert isCorrect == True
-
+    print()
 # testRSASign()
 
 def testPoW():
@@ -32,29 +32,73 @@ def testPoW():
         print('Total time for', numTest, 'hashes', end - start)
         print()
 
-# testPoW()
-pk = 24824973012987653108813315472142148812868167137203560813408237508995350164639
-sk = 55681588644576920927153194286920066383164290810445193335097792020100461327855
-N = 81711360432909513721989947016618208086222908053157068342007920422176201253541
 NUM_ZEROS = 10
 
 def testBlockChain():
+    print('Block chain tests begin')
     l = prog3.Ledger()
-    # u = l.User(pk, sk, N)
     u1 = l.createUser()
     u2 = l.createUser()
     u3 = l.createUser()
-    # print(type(u.pk), prog3.intToBytes(u.pk))
-    # t = l.genTransaction(u, u.pk, l._mintCoins(10))
-    # print(t.coins)
-    # print(t.signature)
-    # b = l.Block(1, 0, [t])
-    # print(b.blockHash)
     l.initLedger(u1)
+    l.printAllBlocks()
     l.userBalance()
+    print('Test: Valid transaction')
     l.genTransaction(u1, u2.pk, [1, 2], False)
-    l.genTransaction(u1, u3.pk, [5, 6], False)
+    l.genTransaction(u1, u3.pk, [4, 5, 6], False)
     l.genBlock(u2, 2, NUM_ZEROS)
-    l.blocks[-1].printSelf()
+    l.verBlock()
+    l.printAllBlocks()
+    l.printTQ()
+    l.userBalance()
 
+    print('Test: Invalid transaction: User try to send coins he not own')
+    l.genTransaction(u1, u2.pk, [7], False)
+    l.genTransaction(u1, u3.pk, [3, 11], False)
+    l.genBlock(u1, 2, NUM_ZEROS)
+    l.verBlock()
+    l.printAllBlocks()
+    l.printTQ()
+    l.userBalance()
+
+    print('Test: Invalid transaction: User try to double spend')
+    l.genTransaction(u1, u2.pk, [3], False)
+    l.genTransaction(u1, u3.pk, [3], False)
+    l.genBlock(u1, 3, NUM_ZEROS)
+    l.verBlock()
+    l.printAllBlocks()
+    l.printTQ()
+    l.userBalance()
+
+    print('Test: Invalid transaction: User try to modify the receiver of a valid transaction')
+    l.genTransaction(u1, u2.pk, [8], False)
+    l.tq[-1].pkr = u3.pk
+    l.genBlock(u3, 3, NUM_ZEROS)
+    l.verBlock()
+    l.printAllBlocks()
+    l.printTQ()
+    l.userBalance()
+
+    print('Test: Invalid transaction: User try to change transactions in a valid block')
+    l.genBlock(u1, 2, NUM_ZEROS)
+    l.blocks[-1].transactions[-1] = l.genTransaction(u3, u3.pk, l._mintCoins(10), True)
+    l.verBlock()
+    l.printAllBlocks()
+    l.printTQ()
+    l.userBalance()
+
+    print('Test: Valid transaction: Process remaining transactions in the queue')
+    l.genBlock(u1, 2, NUM_ZEROS)
+    l.verBlock()
+    l.printAllBlocks()
+    l.printTQ()
+    l.userBalance()
+
+    # (isValid, validTrans) = l._verTransactions(l.blocks[-1].transactions)
+    # print(isValid)
+    # for t in validTrans:
+    #     print(t)
+
+testRSASign()
 testBlockChain()
+testPoW()

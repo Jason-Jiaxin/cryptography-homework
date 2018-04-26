@@ -1,4 +1,4 @@
-import random, math, hashlib, sys, json
+import random, math, hashlib, sys, copy
 sys.setrecursionlimit(1000000)
 
 # Implement Miller-Rabin Primality test
@@ -61,7 +61,7 @@ def mulinv(b, n):
 
 # Return (pk, sk, N)
 def generateKey():
-    n = 64
+    n = 256
     p = generate_prime(n)
     q = generate_prime(n)
     # RSA modulus N = pq
@@ -125,8 +125,6 @@ def verPuzzle(s, x, n):
     zeroString = '0' * n
     return hashSX(s, x).startswith(zeroString)
 
-NUM_ZEROS = 10
-
 class Ledger:
 
     def __init__(self):
@@ -136,14 +134,16 @@ class Ledger:
         self.blockIndex = 0
         self.initTransQueue()
 
+    # Return key pair
     def createUser(self):
         (pk, sk, N) = generateKey()
         self.userCoins[str(pk)] = set()
         return self.User(pk, sk, N)
 
+    # Generate the first block
     def initLedger(self, user):
         t = self.genTransaction(user, user.pk, self._mintCoins(10), True)
-        b = self.Block(self.blockIndex, b'0', [t])
+        b = self.Block(self.blockIndex, b'0', [t], 0)
         self.blockIndex += 1
         b.verified = True
         self.blocks.append(b)
@@ -152,6 +152,11 @@ class Ledger:
     def initTransQueue(self):
         self.tq = []
 
+    # Generate a transactions
+    # userSend: the user who sends Coins
+    # pkr: public key of Receiver
+    # coins: array of coin serial to send
+    # isReturn: true return the transaction (for test); false transaction enter tq
     def genTransaction(self, userSend, pkr, coins, isReturn):
         message = bytearray()
         message += bytearray(intToBytes(userSend.pk))
@@ -166,20 +171,42 @@ class Ledger:
         else:
             self.tq.append(transaction)
 
+    # Generate a block with at most T transactions in the queue
     def genBlock(self, user, T, n):
         trans = []
         while len(self.tq) > 0 and T > 0:
             trans.append(self.tq.pop(0))
             T -= 1
         trans.append(self.genTransaction(user, user.pk, self._mintCoins(10), True))
-        b = self.Block(self.blockIndex, self.blocks[-1].blockHash, trans)
+        b = self.Block(self.blockIndex, self.blocks[-1].blockHash, trans, n)
         self.blockIndex += 1
         salt = solvePuzzle(b.prevBlockHash + b.blockHash, n)
         b.solution = salt
         self.blocks.append(b)
 
-    def verBlock(self, block, n):
-        pass
+    # Verify the block: 1.all transactions are valid; 2.the block solution is valid
+    def verBlock(self):
+        block = self.blocks[-1]
+        (isValid, validTrans) = self._verTransactions(block.transactions)
+        if isValid:
+            if block.isSolutionValid():
+                block.verified = True
+                self._processTransactions(block.transactions)
+                print('Block is valid. Transactions processed:')
+                for t in validTrans:
+                    print(t)
+            else:
+                del self.blocks[-1]
+                self.blockIndex -= 1
+                del validTrans[-1]
+                self.tq.extend(validTrans)
+                print('Block solution invalid. Block discarded. Transactions re-enter tq')
+        else:
+            del self.blocks[-1]
+            self.blockIndex -= 1
+            del validTrans[-1]
+            self.tq.extend(validTrans)
+            print('Not all transactions are valid. Block discarded. Valid transactions re-enter tq')
 
     def checkBalance(self, pku):
         print('User', pku, 'Num:', len(self.userCoins[str(pku)]), 'Coins:', self.userCoins[str(pku)])
@@ -187,9 +214,40 @@ class Ledger:
     def userBalance(self):
         print('All user balance')
         for k, v in self.userCoins.items():
-            print('User', k, 'Num:', len(v), 'Coins:', v)
+            print('User', str(k)[-7:], 'Num:', len(v), 'Coins:', v)
         print()
 
+    def printAllBlocks(self):
+        for b in self.blocks:
+            print(b)
+
+    def printTQ(self):
+        print('Transactions in queue')
+        for t in self.tq:
+            print(t)
+
+    # Verify that trans are valid
+    # Return: (are all trans valid, list of valid trans)
+    def _verTransactions(self, trans):
+        allValid = True
+        copyUserCoins = copy.deepcopy(self.userCoins)
+        validTrans = []
+        for t in trans:
+            if t.isSignatureValid():
+                if t.pks == t.pkr:
+                    validTrans.append(t)
+                elif copyUserCoins[str(t.pks)].issuperset(set(t.coins)):
+                    validTrans.append(t)
+                    copyUserCoins[str(t.pks)].difference_update(t.coins)
+                    # print(copyUserCoins[str(t.pks)])
+                else:
+                    allValid = False
+            else:
+                print('signature invalid')
+                allValid = False
+        return (allValid, validTrans)
+
+    # Accredit coins to user accounts
     def _processTransactions(self, transactions):
         for t in transactions:
             if (t.pks == t.pkr):
@@ -219,20 +277,40 @@ class Ledger:
             self.coins = coins
             self.signature = signature
 
+        def isSignatureValid(self):
+            message = bytearray()
+            message += bytearray(intToBytes(self.pks))
+            message += bytearray(intToBytes(self.pkr))
+            for c in self.coins:
+                message += bytearray(intToBytes(c))
+            # print('message', message)
+            return verSign(message, self.signature, self.pks, self.N)
+
+        def __str__(self):
+            return ('Transaction sender:' + str(self.pks)[-7:] + '; Receiver:' + str(self.pkr)[-7:] +
+                  '; Num coins:' + str(len(self.coins)) + '; Coins:' + str(self.coins) +
+                  '; Signature:' + str(self.signature)[-7:])
+
     class Block:
-        def __init__(self, index, prevBlockHash, transactions):
+        def __init__(self, index, prevBlockHash, transactions, numZeros):
             self.index = index
             self.prevBlockHash = prevBlockHash
             self.transactions = transactions
             self.verified = False
             self.solution = 0
+            self.numZeros = numZeros
             self._calculateHash()
 
         def _calculateHash(self):
             signatures = [intToBytes(t.signature) for t in self.transactions]
             self.blockHash = sha256(*signatures)
 
-        def printSelf(self):
-            print('Block:', self.index, 'Prev block hash:', self.prevBlockHash,
-                  'Num transactions', len(self.transactions), 'Block hash:', self.blockHash,
-                  'Solution:', self.solution, 'Verified:', self.verified)
+        def isSolutionValid(self):
+            signatures = [intToBytes(t.signature) for t in self.transactions]
+            self.blockHash = sha256(*signatures)
+            return verPuzzle(self.solution, self.prevBlockHash + self.blockHash, self.numZeros)
+
+        def __str__(self):
+            return ('Block:' + str(self.index) + '; Prev block hash:' + str(self.prevBlockHash)[-6:] +
+                  '; Num transactions:' + str(len(self.transactions)) + '; Block hash:' + str(self.blockHash)[-6:] +
+                  '; Solution:' + str(self.solution) + '; Verified:' + str(self.verified))
